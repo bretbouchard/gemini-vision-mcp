@@ -197,15 +197,17 @@ def register_visual_tools(mcp: FastMCP) -> None:
         before_path: str,
         after_path: str,
         threshold: int = 2,
+        baseline_id: str | None = None,
+        enable_gemini: bool = True,
     ) -> dict[str, Any]:
         """Compare two screenshots with pixel-level precision and agentic vision analysis.
-
-        NOTE: This is a placeholder implementation. Full comparison will be implemented in Phase 3.
 
         Args:
             before_path: Path to baseline screenshot
             after_path: Path to current screenshot
             threshold: Pixel threshold for change detection (1, 2, or 3)
+            baseline_id: Optional baseline ID for expected changes
+            enable_gemini: Enable Gemini agentic vision analysis (default: True)
 
         Returns:
             Dictionary with comparison results, annotations, and pass/fail status
@@ -214,17 +216,31 @@ def register_visual_tools(mcp: FastMCP) -> None:
             >>> await visual_compare(
             ...     before_path="screenshots/phases/3-before.png",
             ...     after_path="screenshots/phases/4-after.png",
-            ...     threshold=2
+            ...     threshold=2,
+            ...     baseline_id="20250204-200000-phase-3"
             ... )
             {
-                "success": false,
-                "status": "not_implemented",
-                "message": "Comparison will be implemented in Phase 3",
-                "before_path": "screenshots/phases/3-before.png",
-                "after_path": "screenshots/phases/4-after.png"
+                "success": true,
+                "passed": false,
+                "changed_pixels": 1523,
+                "changed_percentage": 0.12,
+                "intended_changes": [
+                    {"description": "Card padding increased by 2px", "confidence": 0.95}
+                ],
+                "unintended_changes": [
+                    {"description": "Title shifted 5px down", "severity": "major", "confidence": 0.88}
+                ],
+                "heatmap_path": "screenshots/reports/20250204-200000-heatmap.png",
+                "report_path": "screenshots/reports/20250204-200000-report.md"
             }
         """
         try:
+            # Import services (late import to avoid circular dependency)
+            from wheres_waldo.services.classification import ClassificationService
+            from wheres_waldo.services.comparison import ComparisonService
+            from wheres_waldo.services.gemini_integration import GeminiIntegrationService, GeminiRateLimiter
+            import os
+
             # Validate paths
             before = Path(before_path)
             after = Path(after_path)
@@ -241,17 +257,79 @@ def register_visual_tools(mcp: FastMCP) -> None:
                     "error": f"After screenshot not found: {after_path}",
                 }
 
-            logger.info(f"Comparison requested: {before_path} vs {after_path}")
+            logger.info(f"Comparison requested: {before_path} vs {after_path}, enable_gemini={enable_gemini}")
 
-            # Placeholder - Phase 3 will implement actual comparison
+            # Get baseline if provided
+            baseline = None
+            if baseline_id:
+                baseline = storage_service.get_baseline(baseline_id)
+                if not baseline:
+                    return {
+                        "success": False,
+                        "error": f"Baseline not found: {baseline_id}",
+                    }
+
+            # Initialize comparison service
+            comparison_service = ComparisonService(config_service.get_config().comparison)
+
+            # Initialize Gemini service if enabled and API key available
+            gemini_service = None
+            if enable_gemini:
+                api_key = os.getenv("GEMINI_API_KEY") or config_service.get_config().gemini_api_key
+                if api_key:
+                    rate_limiter = GeminiRateLimiter()
+                    gemini_service = GeminiIntegrationService(api_key=api_key, rate_limiter=rate_limiter)
+                    logger.info("Gemini agentic vision enabled")
+                else:
+                    logger.warning("Gemini API key not found, falling back to pixel-only comparison")
+                    enable_gemini = False
+
+            # Initialize classification service
+            classification_service = ClassificationService(
+                comparison_service=comparison_service,
+                gemini_service=gemini_service,
+                storage_service=storage_service,
+                config=config_service.get_config().comparison,
+            )
+
+            # Run comparison
+            result = await classification_service.compare_and_classify(
+                before_path=before,
+                after_path=after,
+                baseline=baseline,
+                threshold=threshold,
+                enable_gemini=enable_gemini,
+            )
+
+            # Format response
             return {
-                "success": False,
-                "status": "not_implemented",
-                "message": "Full comparison with Gemini agentic vision will be implemented in Phase 3",
-                "before_path": str(before),
-                "after_path": str(after),
-                "threshold": threshold,
-                "note": "Phase 3 will include: OpenCV pixel diffing, Gemini integration, intended vs unintended classification",
+                "success": True,
+                "passed": result.passed,
+                "failure_reason": result.failure_reason,
+                "changed_pixels": result.changed_pixels,
+                "total_pixels": result.total_pixels,
+                "changed_percentage": result.changed_percentage,
+                "threshold": result.threshold,
+                "intended_changes": [
+                    {
+                        "description": c.description,
+                        "bbox": c.bbox,
+                        "confidence": c.confidence,
+                    }
+                    for c in result.intended_changes
+                ],
+                "unintended_changes": [
+                    {
+                        "description": c.description,
+                        "bbox": c.bbox,
+                        "severity": c.severity.value if c.severity else None,
+                        "confidence": c.confidence,
+                    }
+                    for c in result.unintended_changes
+                ],
+                "heatmap_path": str(result.heatmap_path) if result.heatmap_path else None,
+                "report_path": str(result.report_path) if result.report_path else None,
+                "timestamp": result.timestamp.isoformat(),
             }
 
         except Exception as e:
