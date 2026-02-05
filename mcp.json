@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "wheres-waldo-rick": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/bretbouchard/gemini-vision-mcp",
+        "wheres_waldo.server"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    }
+  }
+}

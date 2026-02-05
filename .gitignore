@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Screenshots and storage (but keep structure)
+.screenshots/phases/*.png
+.screenshots/phases/*.jpg
+.screenshots/phases/*.jpeg
+.screenshots/phases/*.webp
+.screenshots/cache/*
+.screenshots/reports/*
+.screenshots/conversations/*
+
+# Keep directory structure
+!.screenshots/phases/.gitkeep
+!.screenshots/cache/.gitkeep
+!.screenshots/reports/.gitkeep
+!.screenshots/conversations/.gitkeep
+
+# Environment variables
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
