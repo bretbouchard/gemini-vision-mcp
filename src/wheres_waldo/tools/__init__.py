@@ -1,3 +1,5 @@
 """MCP tools for Where's Waldo Rick."""
 
-EMPTY_INIT = True
+from wheres_waldo.tools.visual_tools import register_visual_tools
+
+__all__ = ["register_visual_tools"]
