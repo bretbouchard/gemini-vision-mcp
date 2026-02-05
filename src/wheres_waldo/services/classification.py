@@ -16,6 +16,7 @@ from wheres_waldo.models.domain import (
     ChangeRegion,
     Severity,
 )
+from wheres_waldo.services.cache import CacheService
 from wheres_waldo.services.comparison import ComparisonService
 from wheres_waldo.services.gemini_integration import GeminiIntegrationService
 from wheres_waldo.services.storage import StorageService
@@ -39,6 +40,7 @@ class ClassificationService:
         comparison_service: ComparisonService | None = None,
         gemini_service: GeminiIntegrationService | None = None,
         storage_service: StorageService | None = None,
+        cache_service: CacheService | None = None,
         config: ComparisonConfig | None = None,
     ) -> None:
         """Initialize classification service.
@@ -47,11 +49,13 @@ class ClassificationService:
             comparison_service: Comparison service (creates if None)
             gemini_service: Gemini integration service (optional)
             storage_service: Storage service (creates if None)
+            cache_service: Cache service (creates if None)
             config: Comparison configuration (uses defaults if None)
         """
         self.comparison_service = comparison_service or ComparisonService(config)
         self.gemini_service = gemini_service  # Optional (may not have API key)
         self.storage_service = storage_service or StorageService()
+        self.cache_service = cache_service or CacheService(storage_service)
         self.config = config or ComparisonConfig()
 
         logger.info("ClassificationService initialized")
@@ -81,6 +85,18 @@ class ClassificationService:
         """
         start_time = datetime.now()
         logger.info(f"Starting comparison: {before_path.name} vs {after_path.name}")
+
+        # Step 0: Check cache first
+        cache_key = self.cache_service.get_cache_key(
+            before_path=before_path,
+            after_path=after_path,
+            threshold=threshold or self.config.pixel_threshold,
+        )
+
+        cached_result = self.cache_service.get(cache_key)
+        if cached_result is not None:
+            logger.info(f"Returning cached result from {cached_result.timestamp.isoformat()}")
+            return cached_result
 
         # Determine if Gemini should be used
         use_gemini = enable_gemini if enable_gemini is not None else self.config.enable_agentic_vision
@@ -199,6 +215,9 @@ class ClassificationService:
 
         # Save to storage
         self.storage_service.save_comparison(result)
+
+        # Cache the result
+        self.cache_service.put(cache_key, result)
 
         logger.info(f"Comparison complete: passed={passed}, unintended_changes={len(unintended_changes)}")
         return result

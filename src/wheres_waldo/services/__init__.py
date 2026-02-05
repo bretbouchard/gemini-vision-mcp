@@ -1,6 +1,7 @@
 """Business logic services for Where's Waldo Rick."""
 
 from wheres_waldo.services.baseline import BaselineService
+from wheres_waldo.services.cache import CacheService
 from wheres_waldo.services.capture import CaptureService, PlatformDetector, ScreenshotCaptureError
 from wheres_waldo.services.classification import ClassificationService
 from wheres_waldo.services.comparison import ComparisonService, HeatmapColorScheme
@@ -10,6 +11,7 @@ from wheres_waldo.services.storage import StorageService
 
 __all__ = [
     "BaselineService",
+    "CacheService",
     "CaptureService",
     "PlatformDetector",
     "ScreenshotCaptureError",
