@@ -1,4 +1,4 @@
-# Where's Waldo Rick - Visual Regression MCP Server
+# Fix unused variable warnings across instruments
 
 A Model Context Protocol (MCP) server that brings **agentic vision capabilities** to Claude Code for visual regression testing using Gemini 3 Flash.
 
